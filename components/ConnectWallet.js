@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ethers } from "ethers";
 
 export default function ConnectWallet() {
@@ -8,70 +8,88 @@ export default function ConnectWallet() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    // Check if MetaMask is installed
-    if (typeof window !== "undefined" && window.ethereum) {
-      setIsMetaMaskInstalled(true);
-
-      // Get current account if already connected
-      checkIfWalletIsConnected();
-
-      // Listen for account changes
-      window.ethereum.on("accountsChanged", handleAccountsChanged);
-
-      // Listen for chain changes
-      window.ethereum.on("chainChanged", handleChainChanged);
-
-      // Cleanup listeners on unmount
-      return () => {
-        if (window.ethereum.removeListener) {
-          window.ethereum.removeListener(
-            "accountsChanged",
-            handleAccountsChanged
-          );
-          window.ethereum.removeListener("chainChanged", handleChainChanged);
-        }
-      };
+  // Named handlers so we can remove them later
+  const handleAccountsChanged = useCallback((accounts) => {
+    // accounts is an array of address strings
+    if (!accounts || accounts.length === 0) {
+      setAccount(null);
+      setError("Wallet disconnected");
+    } else {
+      setAccount(accounts[0]);
+      setError(null);
     }
   }, []);
 
+  const handleChainChanged = useCallback((rawChainId) => {
+    // rawChainId may be hex (e.g. "0x1") or decimal string
+    try {
+      const decimal =
+        typeof rawChainId === "string" && rawChainId.startsWith("0x")
+          ? parseInt(rawChainId, 16)
+          : parseInt(rawChainId, 10);
+      if (!Number.isNaN(decimal)) {
+        setChainId(decimal.toString());
+      } else {
+        setChainId(String(rawChainId));
+      }
+    } catch {
+      setChainId(String(rawChainId));
+    }
+    // Do not force a full reload. Let the app react to chainId changes.
+  }, []);
+
   // Check if wallet is already connected
-  const checkIfWalletIsConnected = async () => {
+  const checkIfWalletIsConnected = useCallback(async () => {
     try {
       const provider = new ethers.BrowserProvider(window.ethereum);
-      const accounts = await provider.listAccounts();
-
-      if (accounts.length > 0) {
-        setAccount(accounts[0].address);
+      const accounts = await provider.listAccounts(); // returns array of JsonRpcSigner objects
+      if (accounts && accounts.length > 0) {
+        // Extract address from the signer object
+        const address = await accounts[0].getAddress();
+        setAccount(address);
         const network = await provider.getNetwork();
-        setChainId(network.chainId.toString());
+        setChainId(network.chainId?.toString?.() ?? String(network.chainId));
+        // optional: persist a flag so you can auto-open UI on reload
+        try {
+          localStorage.setItem("walletConnected", "1");
+        } catch {}
+      } else {
+        // nothing connected
+        setAccount(null);
+        setChainId(null);
       }
     } catch (err) {
       console.error("Error checking wallet connection:", err);
     }
-  };
+  }, []);
 
-  // Handle account changes
-  const handleAccountsChanged = (accounts) => {
-    if (accounts.length === 0) {
-      // User disconnected their wallet
-      setAccount(null);
-      setError("Wallet disconnected");
-    } else {
-      // User switched accounts
-      setAccount(accounts[0]);
-      setError(null);
-    }
-  };
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
-  // Handle chain changes
-  const handleChainChanged = (chainId) => {
-    // Convert hex chainId to decimal
-    const decimalChainId = parseInt(chainId, 16).toString();
-    setChainId(decimalChainId);
-    // Reload the page as recommended by MetaMask
-    window.location.reload();
-  };
+    const eth = window.ethereum;
+    if (!eth) return;
+
+    setIsMetaMaskInstalled(true);
+
+    // Attach event listeners
+    eth.on && eth.on("accountsChanged", handleAccountsChanged);
+    eth.on && eth.on("chainChanged", handleChainChanged);
+
+    // Read initial connection state
+    checkIfWalletIsConnected();
+
+    // Cleanup on unmount
+    return () => {
+      if (eth && eth.removeListener) {
+        try {
+          eth.removeListener("accountsChanged", handleAccountsChanged);
+          eth.removeListener("chainChanged", handleChainChanged);
+        } catch (e) {
+          // ignore errors during cleanup
+        }
+      }
+    };
+  }, [handleAccountsChanged, handleChainChanged, checkIfWalletIsConnected]);
 
   // Connect wallet function
   const connectWallet = async () => {
@@ -84,25 +102,52 @@ export default function ConnectWallet() {
     setError(null);
 
     try {
-      // Request account access
       const provider = new ethers.BrowserProvider(window.ethereum);
       await provider.send("eth_requestAccounts", []);
 
-      // Get the signer and account
       const signer = await provider.getSigner();
       const address = await signer.getAddress();
 
-      // Get network info
       const network = await provider.getNetwork();
 
       setAccount(address);
       setChainId(network.chainId.toString());
+
+      try {
+        localStorage.setItem("walletConnected", "1");
+      } catch {}
     } catch (err) {
       console.error("Error connecting wallet:", err);
-      setError(err.message || "Failed to connect wallet");
+      setError(err?.message || "Failed to connect wallet");
     } finally {
       setIsConnecting(false);
     }
+  };
+
+  // Disconnect wallet: revoke permissions if supported and clear local state.
+  const disconnectWallet = async () => {
+    const eth = window.ethereum;
+
+    // Attempt to revoke permissions. Not all wallets support this.
+    if (eth && eth.request) {
+      try {
+        await eth.request({
+          method: "wallet_revokePermissions",
+          params: [{ eth_accounts: {} }],
+        });
+      } catch (err) {
+        // If revoke not supported, ignore and continue clearing local state.
+        console.warn("wallet_revokePermissions failed or not supported", err);
+      }
+    }
+
+    // Clear UI state and any persisted flags
+    setAccount(null);
+    setChainId(null);
+    setError(null);
+    try {
+      localStorage.removeItem("walletConnected");
+    } catch (e) {}
   };
 
   // Format address for display (show first 6 and last 4 characters)
@@ -114,7 +159,10 @@ export default function ConnectWallet() {
   };
 
   // Get network name from chainId
-  const getNetworkName = (chainId) => {
+  const getNetworkName = (id) => {
+    if (!id) return "Unknown Network";
+    // Convert to number for lookup
+    const numId = typeof id === "string" ? parseInt(id, 10) : id;
     const networks = {
       1: "Ethereum Mainnet",
       5: "Goerli Testnet",
@@ -122,10 +170,10 @@ export default function ConnectWallet() {
       137: "Polygon Mainnet",
       80001: "Mumbai Testnet",
     };
-    return networks[chainId] || `Chain ID: ${chainId}`;
+    return networks[numId] || `Chain ID: ${id}`;
   };
 
-  // If MetaMask is not installed
+  // UI when MetaMask not installed
   if (!isMetaMaskInstalled) {
     return (
       <div className="card border-warning mb-4">
@@ -197,14 +245,7 @@ export default function ConnectWallet() {
 
             <button
               className="btn btn-sm btn-outline-secondary mt-2"
-              onClick={async () => {
-                await window.ethereum.request({
-                  method: "wallet_requestPermissions",
-                  params: [{ eth_accounts: {} }],
-                });
-                setAccount(null);
-                setChainId(null);
-              }}
+              onClick={disconnectWallet}
             >
               Disconnect
             </button>
