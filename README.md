@@ -2,6 +2,8 @@
 
 A Next.js application that enables cryptocurrency payments through MetaMask wallet integration. This app demonstrates wallet connection, real-time ETH price fetching, and secure payment address management.
 
+![Landing Page](assets/landing.png)
+
 ## Features
 
 - 🔐 **MetaMask Wallet Connection** - Connect and manage your Ethereum wallet
