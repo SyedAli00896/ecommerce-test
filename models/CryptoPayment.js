@@ -97,21 +97,6 @@ const CryptoPaymentSchema = new mongoose.Schema(
 CryptoPaymentSchema.index({ orderId: 1, status: 1 });
 CryptoPaymentSchema.index({ createdAt: -1 });
 
-// Instance helper: mark confirmed
-CryptoPaymentSchema.methods.markConfirmed = function (
-  txHash,
-  blockNumber,
-  blockTimestamp,
-  confirmations = 1
-) {
-  this.txHash = txHash || this.txHash;
-  this.blockNumber = blockNumber || this.blockNumber;
-  if (blockTimestamp) this.blockTimestamp = new Date(blockTimestamp);
-  this.status = "confirmed";
-  this.confirmations = confirmations;
-  return this.save();
-};
-
 // Static helper: validate ETH address quickly
 CryptoPaymentSchema.statics.isValidEthAddress = function (addr) {
   return ETH_ADDRESS_REGEX.test(addr);

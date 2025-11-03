@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import Head from 'next/head';
-import ConnectWallet from '../components/ConnectWallet';
-import EthPriceToggle from '../components/EthPriceToggle';
+import { useState, useEffect } from "react";
+import Head from "next/head";
+import ConnectWallet from "../components/ConnectWallet";
+import EthPriceToggle from "../components/EthPriceToggle";
 
 export default function Home() {
   const [recipientAddress, setRecipientAddress] = useState(null);
@@ -19,16 +19,16 @@ export default function Home() {
     setError(null);
 
     try {
-      const response = await fetch('/api/crypto/address');
+      const response = await fetch("/api/crypto/address");
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch recipient address');
+        throw new Error(data.error || "Failed to fetch recipient address");
       }
 
       setRecipientAddress(data.address);
     } catch (err) {
-      console.error('Error fetching recipient address:', err);
+      console.error("Error fetching recipient address:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -42,13 +42,13 @@ export default function Home() {
     try {
       await navigator.clipboard.writeText(recipientAddress);
       setCopied(true);
-      
+
       // Reset copied state after 2 seconds
       setTimeout(() => {
         setCopied(false);
       }, 2000);
     } catch (err) {
-      console.error('Failed to copy address:', err);
+      console.error("Failed to copy address:", err);
     }
   };
 
@@ -58,7 +58,10 @@ export default function Home() {
         <title>Crypto Payment - MetaMask Integration</title>
         <meta name="description" content="Send crypto payments via MetaMask" />
         <link rel="icon" href="/favicon.ico" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css" />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css"
+        />
       </Head>
 
       <main>
@@ -86,20 +89,26 @@ export default function Home() {
               <div className="card mb-4">
                 <div className="card-body">
                   <h5 className="card-title">Payment Recipient</h5>
-                  
+
                   {loading ? (
                     <div className="text-center py-3">
-                      <div className="spinner-border text-primary" role="status">
+                      <div
+                        className="spinner-border text-primary"
+                        role="status"
+                      >
                         <span className="visually-hidden">Loading...</span>
                       </div>
-                      <p className="text-muted mt-2">Loading recipient address...</p>
+                      <p className="text-muted mt-2">
+                        Loading recipient address...
+                      </p>
                     </div>
                   ) : error ? (
                     <div className="alert alert-danger" role="alert">
                       <strong>Error:</strong> {error}
                       <br />
                       <small className="text-muted">
-                        Make sure you have created a .env.local file with RECIPIENT_WALLET set.
+                        Make sure you have created a .env.local file with
+                        RECIPIENT_WALLET set.
                       </small>
                     </div>
                   ) : (
@@ -107,12 +116,12 @@ export default function Home() {
                       <p className="card-text mb-3">
                         Send ETH to this address:
                       </p>
-                      
+
                       <div className="d-flex align-items-start">
                         <code className="wallet-address flex-grow-1 me-2">
                           {recipientAddress}
                         </code>
-                        <button 
+                        <button
                           className="btn btn-sm btn-outline-primary copy-button"
                           onClick={copyToClipboard}
                           title="Copy to clipboard"
@@ -133,7 +142,8 @@ export default function Home() {
 
                       <div className="alert alert-info mt-3 mb-0" role="alert">
                         <i className="bi bi-info-circle me-2"></i>
-                        <strong>Note:</strong> Make sure you're connected to the correct network before sending any transactions.
+                        <strong>Note:</strong> Make sure you're connected to the
+                        correct network before sending any transactions.
                       </div>
                     </div>
                   )}
@@ -149,16 +159,20 @@ export default function Home() {
                   </h5>
                   <ol className="mb-0">
                     <li className="mb-2">
-                      <strong>Connect Wallet:</strong> Click the "Connect Wallet" button and approve the connection in MetaMask.
+                      <strong>Connect Wallet:</strong> Click the "Connect
+                      Wallet" button and approve the connection in MetaMask.
                     </li>
                     <li className="mb-2">
-                      <strong>Check ETH Price:</strong> Click "Today's ETH Price" to see the current Ethereum price in USD.
+                      <strong>Check ETH Price:</strong> Click "Today's ETH
+                      Price" to see the current Ethereum price in USD.
                     </li>
                     <li className="mb-2">
-                      <strong>Send Payment:</strong> Copy the recipient address and use MetaMask to send ETH to that address.
+                      <strong>Send Payment:</strong> Copy the recipient address
+                      and use MetaMask to send ETH to that address.
                     </li>
                     <li>
-                      <strong>Network:</strong> Ensure you're on the correct Ethereum network (Mainnet, Testnet, etc.).
+                      <strong>Network:</strong> Ensure you're on the correct
+                      Ethereum network (Mainnet, Testnet, etc.).
                     </li>
                   </ol>
                 </div>
@@ -172,7 +186,7 @@ export default function Home() {
         <div className="container">
           <p className="mb-0">
             <i className="bi bi-shield-check me-2"></i>
-            Powered by MetaMask & ethers.js
+            Developed By Syed Muhammad Ali
           </p>
         </div>
       </footer>
